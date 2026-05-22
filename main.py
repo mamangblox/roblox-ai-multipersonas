@@ -1,4 +1,5 @@
 import os
+import logging
 import google.generativeai as genai
 
 from fastapi import FastAPI
@@ -7,10 +8,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("roblox-ai")
+
 app = FastAPI()
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel("gemini-2.5-flash")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+else:
+    logger.warning("GEMINI_API_KEY is not set")
+
+model = genai.GenerativeModel(GEMINI_MODEL)
 
 chat_memory = {}
 
@@ -45,9 +56,10 @@ async def home():
 @app.post("/webhook/roblox-ai")
 async def webhook(data:RobloxMessage):
 
-    persona = PERSONAS.get(data.persona.lower(), PERSONAS["guard"])
+    persona_key = data.persona.lower()
+    persona = PERSONAS.get(persona_key, PERSONAS["guard"])
 
-    memory_key = f"{data.user}_{data.persona}"
+    memory_key = f"{data.user}_{persona_key}"
 
     if memory_key not in chat_memory:
         chat_memory[memory_key] = []
@@ -79,12 +91,17 @@ Aturan:
 """
 
     try:
+        if not GEMINI_API_KEY:
+            raise RuntimeError("GEMINI_API_KEY belum di-set di environment.")
+
         response = model.generate_content(prompt)
-        reply = response.text.strip()
+        reply = (response.text or "").strip()
+        if not reply:
+            raise RuntimeError("Gemini mengembalikan teks kosong.")
 
     except Exception as e:
-        print(e)
-        reply = "Server AI sedang sibuk."
+        logger.exception("Gemini request failed")
+        reply = f"Server AI sedang sibuk. ({type(e).__name__})"
 
     history.append({
         "player":data.message,

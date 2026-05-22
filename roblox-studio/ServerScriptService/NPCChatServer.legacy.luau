@@ -24,7 +24,7 @@ if not openDialogEvt then
 	openDialogEvt.Parent = ReplicatedStorage
 end
 
-local AI_URL = "https://roblox-ai-multipersona-production.up.railway.app/webhook/roblox-ai"
+local AI_URL = "https://roblox-ai-multipersonas-production.up.railway.app/webhook/roblox-ai"
 
 local NPC_CONFIG = {
 	GuardNPC = {
@@ -48,12 +48,12 @@ local NPC_CONFIG = {
 		promptObjectText = "Penyihir",
 		systemPrompt = "Kamu adalah Penyihir. Bijak, misterius, dan memakai bahasa yang berkesan magis. Jawab dengan 1-2 kalimat. Jangan terlalu panjang. Gunakan nuansa sihir, ramalan, atau petunjuk halus bila cocok.",
 	},
-	RobotNPC = {
-		displayName = "Robot AI",
-		greeting = "Unit online. Silakan ajukan pertanyaan.",
+	TemanNPC = {
+		displayName = "Teman Dekat",
+		greeting = "Hi teman, apa kabar?",
 		promptActionText = "Bicara",
-		promptObjectText = "Robot AI",
-		systemPrompt = "Kamu adalah Robot AI. Logis, futuristik, sedikit kaku, dan efisien. Jawab dengan 1-2 kalimat. Jangan terlalu panjang. Gunakan bahasa yang ringkas, teknis, dan konsisten.",
+		promptObjectText = "Teman Dekat",
+		systemPrompt = "Kamu adalah teman dekat yang biasa menemani ngobrol orang yang kesepian. Jawab dengan 1-2 kalimat. Jangan terlalu panjang. Gunakan bahasa yang friendly layaknya teman dekat dan terkadang tanya balik ataupun berikan pertanyaan",
 	},
 }
 
@@ -65,6 +65,18 @@ local function getNpcRootPart(npcModel)
 		or npcModel:FindFirstChild("Head")
 		or npcModel.PrimaryPart
 		or npcModel:FindFirstChildWhichIsA("BasePart")
+end
+
+local function getPlayerRootPart(player)
+	local character = player.Character
+	if not character then
+		return nil
+	end
+
+	return character:FindFirstChild("HumanoidRootPart")
+		or character:FindFirstChild("Head")
+		or character.PrimaryPart
+		or character:FindFirstChildWhichIsA("BasePart")
 end
 
 local function getNpcConfig(npcModel)
@@ -174,6 +186,31 @@ local function scanAndRegisterNpcs()
 	end
 end
 
+local function findNearestNpc(player, maxDistance)
+	local playerRoot = getPlayerRootPart(player)
+	if not playerRoot then
+		return nil
+	end
+
+	local nearestNpc = nil
+	local nearestDistance = maxDistance or 12
+
+	for _, descendant in ipairs(Workspace:GetDescendants()) do
+		if descendant:IsA("Model") and NPC_CONFIG[descendant.Name] then
+			local rootPart = getNpcRootPart(descendant)
+			if rootPart then
+				local distance = (playerRoot.Position - rootPart.Position).Magnitude
+				if distance <= nearestDistance then
+					nearestDistance = distance
+					nearestNpc = descendant
+				end
+			end
+		end
+	end
+
+	return nearestNpc
+end
+
 scanAndRegisterNpcs()
 
 Workspace.DescendantAdded:Connect(function(descendant)
@@ -195,8 +232,13 @@ chatEvt.OnServerEvent:Connect(function(player, msg)
 
 	local npcModel = activeNpcByUserId[player.UserId]
 	if not npcModel or not npcModel.Parent then
-		warn("Player tried to chat without an active NPC:", player.Name)
-		return
+		npcModel = findNearestNpc(player, 12)
+		if npcModel then
+			activeNpcByUserId[player.UserId] = npcModel
+		else
+			warn("Player tried to chat without an active NPC:", player.Name)
+			return
+		end
 	end
 
 	local npcConfig = getNpcConfig(npcModel)

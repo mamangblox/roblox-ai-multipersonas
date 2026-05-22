@@ -25,41 +25,29 @@ model = genai.GenerativeModel(GEMINI_MODEL)
 
 chat_memory = {}
 
-PERSONAS = {
-    "guard": {
-        "name":"Penjaga Kota",
-        "personality":"Tegas, suka menjaga keamanan kota, jawab singkat."
-    },
-    "merchant": {
-        "name":"Pedagang",
-        "personality":"Ramah, suka menawarkan barang."
-    },
-    "wizard": {
-        "name":"Penyihir",
-        "personality":"Bijak, misterius, suka bicara sihir."
-    },
-    "robot": {
-        "name":"Robot AI",
-        "personality":"Logis, futuristik, sedikit kaku."
-    }
-}
 
 class RobloxMessage(BaseModel):
-    user:str
-    message:str
-    persona:str="guard"
+    user: str
+    message: str
+    npc_name: str
+    display_name: str = "NPC"
+    system_prompt: str = ""
+    greeting: str = "Halo."
+
 
 @app.get("/")
 async def home():
-    return {"status":"online","personas":list(PERSONAS.keys())}
+    return {"status": "online"}
+
 
 @app.post("/webhook/roblox-ai")
-async def webhook(data:RobloxMessage):
+async def webhook(data: RobloxMessage):
+    npc_name = data.npc_name or data.display_name or "NPC"
+    display_name = data.display_name or npc_name
+    greeting = data.greeting or "Halo."
+    system_prompt = (data.system_prompt or "").strip()
 
-    persona_key = data.persona.lower()
-    persona = PERSONAS.get(persona_key, PERSONAS["guard"])
-
-    memory_key = f"{data.user}_{persona_key}"
+    memory_key = f"{data.user}_{npc_name}"
 
     if memory_key not in chat_memory:
         chat_memory[memory_key] = []
@@ -70,10 +58,13 @@ async def webhook(data:RobloxMessage):
 Kamu NPC Roblox.
 
 Nama NPC:
-{persona["name"]}
+{display_name}
 
-Kepribadian:
-{persona["personality"]}
+Instruksi NPC:
+{system_prompt}
+
+Salam awal:
+{greeting}
 
 Player:
 {data.user}
@@ -104,13 +95,14 @@ Aturan:
         reply = f"Server AI sedang sibuk. ({e})"
 
     history.append({
-        "player":data.message,
-        "npc":reply
+        "player": data.message,
+        "npc": reply,
     })
 
     chat_memory[memory_key] = history[-10:]
 
     return {
-        "reply":reply,
-        "persona":persona["name"]
+        "reply": reply,
+        "npc_name": npc_name,
+        "display_name": display_name,
     }

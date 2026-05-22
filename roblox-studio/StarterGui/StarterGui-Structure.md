@@ -1,0 +1,1 @@
+Ini hanyalah print structure dari StarterGui

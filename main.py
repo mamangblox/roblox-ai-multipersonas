@@ -101,7 +101,7 @@ Aturan:
 
     except Exception as e:
         logger.exception("Gemini request failed")
-        reply = f"Server AI sedang sibuk. ({type(e).__name__})"
+        reply = f"Server AI sedang sibuk. ({e})"
 
     history.append({
         "player":data.message,
